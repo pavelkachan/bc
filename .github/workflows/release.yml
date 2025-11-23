@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build
+        run: cargo build --release
+      - name: Rename binary
+        run: mv target/release/bc.exe bc.exe
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bc-windows
+          path: bc.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build
+        run: cargo build --release
+      - name: Rename binary
+        run: mv target/release/bc bc-macos
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bc-macos
+          path: bc-macos
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev
+          cargo install cargo-deb
+          # Pin cargo-generate-rpm to avoid edition2024 issues
+          cargo install cargo-generate-rpm --version 0.16.0
+
+      - name: Build Binary
+        run: cargo build --release
+
+      - name: Build DEB
+        run: cargo deb
+
+      - name: Build RPM
+        run: cargo generate-rpm
+
+      - name: Prepare Artifacts
+        run: |
+          mv target/release/bc bc
+          mv target/debian/*.deb bc.deb
+          mv target/generate-rpm/*.rpm bc.rpm
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bc-linux-all
+          path: |
+            bc
+            bc.deb
+            bc.rpm
+
+  create-release:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bc-*
+          merge-multiple: true
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            bc.exe
+            bc-macos
+            bc
+            bc.deb
+            bc.rpm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
