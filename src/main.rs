@@ -52,7 +52,15 @@ fn main() -> Result<()> {
     if !args.local && is_remote_session() {
         copy_remote(&buffer)?;
     } else {
-        copy_local(&buffer)?;
+        // Try local clipboard first. If it fails (e.g., no X11/Wayland in SSM session),
+        // and --local wasn't forced, fallback to OSC 52.
+        if let Err(e) = copy_local(&buffer) {
+            if args.local {
+                return Err(e);
+            }
+            // Silent fallback to OSC 52
+            copy_remote(&buffer)?;
+        }
     }
 
     Ok(())
