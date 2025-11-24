@@ -34,7 +34,7 @@ jobs:
       run: cargo test --verbose
 
   test-rhel:
-    name: rockylinux-9
+    name: Test on rockylinux-9
     runs-on: ubuntu-latest
     container: rockylinux:9
     steps:
