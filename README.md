@@ -37,7 +37,6 @@ A simple, cross-platform command-line tool to copy piped text to the system clip
     <li><a href="#troubleshooting">Troubleshooting</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
   </ol>
 </details>
 
@@ -66,7 +65,7 @@ Go to the [Releases](https://github.com/pavelkachan/bc/releases) page and downlo
 
 ```bash
 # Example for Linux
-wget https://github.com/pavelkachan/bc/releases/download/v0.1.0/bc
+curl -O https://github.com/pavelkachan/bc/releases/download/v0.1.0/bc
 chmod +x bc
 sudo mv bc /usr/local/bin/
 ```

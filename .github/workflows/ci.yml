@@ -34,14 +34,13 @@ jobs:
       run: cargo test --verbose
 
   test-rhel:
-    name: Test on Rocky Linux 9
+    name: Test on rockylinux-9
     runs-on: ubuntu-latest
     container: rockylinux:9
     steps:
     - name: Install System Deps
       run: |
-        dnf install -y git gcc curl openssl-devel libxcb-devel libXfixes-devel
-
+        dnf install -y --allowerasing git gcc curl openssl-devel libxcb-devel libXfixes-devel
     - uses: actions/checkout@v4
 
     - name: Install Rust

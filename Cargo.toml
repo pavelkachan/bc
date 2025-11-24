@@ -13,8 +13,14 @@ categories = ["command-line-utilities", "development-tools"]
 [package.metadata.deb]
 section = "utils"
 assets = [
-    ["target/release/bc", "usr/bin/", "755"],
     ["README.md", "usr/share/doc/bc/", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/bc", dest = "/usr/bin/bc", mode = "755" },
+    { source = "README.md", dest = "/usr/share/doc/bc/README.md", mode = "644" },
+    { source = "LICENSE.md", dest = "/usr/share/doc/bc/LICENSE.md", mode = "644" },
 ]
 
 [dependencies]
