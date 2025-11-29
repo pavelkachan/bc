@@ -72,7 +72,7 @@ fn is_remote_session() -> bool {
 
 fn copy_local(text: &str) -> Result<()> {
     let mut clipboard = Clipboard::new().context("Failed to initialize clipboard")?;
-    clipboard.set_text(text).context("Failed to copy text to local clipboard")?;
+    clipboard.set_text(text).context("Failed to write to local clipboard")?;
     Ok(())
 }
 
@@ -87,7 +87,9 @@ fn copy_remote(text: &str) -> Result<()> {
         Box::new(io::stderr())
     };
 
-    write!(stream, "{}", osc52).context("Failed to write OSC 52 sequence")?;
+    // Disable auto-wrap (\x1b[?7l), write OSC 52, then re-enable auto-wrap (\x1b[?7h)
+    // This prevents legacy consoles (like conhost.exe) from inserting newlines in the middle of the sequence.
+    write!(stream, "\x1b[?7l{}\x1b[?7h", osc52).context("Failed to write OSC 52 sequence")?;
     
     // Flush to ensure it's sent
     stream.flush()?;
