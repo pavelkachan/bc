@@ -61,20 +61,43 @@ Why another clipboard tool?
 
 #### Option 1: Download Binary (Recommended)
 
-Go to the [Releases](https://github.com/pavelkachan/bc/releases) page and download the binary for your system.
+Download the latest binary for your operating system from the [Releases](https://github.com/pavelkachan/bc/releases) page.
 
-```bash
-# Example for Linux
-curl -O https://github.com/pavelkachan/bc/releases/download/v0.1.0/bc
-chmod +x bc
-sudo mv bc /usr/local/bin/
+**Linux**
+*   **Debian/Ubuntu**: Download `bc.deb` and run `sudo dpkg -i bc.deb`
+*   **Fedora/RedHat**: Download `bc.rpm` and run `sudo rpm -i bc.rpm`
+*   **Manual**:
+    ```bash
+    curl -L https://github.com/pavelkachan/bc/releases/latest/download/bc -o bc
+    chmod +x bc
+    sudo mv bc /usr/local/bin/
+    ```
+
+**MacOS**
+*   **Installer (Recommended)**: Download `bc.pkg` from [Releases](https://github.com/pavelkachan/bc/releases) and run it.
+*   **Manual**:
+    ```bash
+    curl -L https://github.com/pavelkachan/bc/releases/latest/download/bc-macos -o bc
+    chmod +x bc
+    mkdir -p ~/.local/bin
+    mv bc ~/.local/bin/
+    # Ensure ~/.local/bin is in your PATH
+    ```
+    *Note: If macOS blocks the binary, run `xattr -d com.apple.quarantine ~/.local/bin/bc` to allow execution.*
+
+**Windows (PowerShell)**
+```powershell
+curl -L https://github.com/pavelkachan/bc/releases/latest/download/bc.exe -o bc.exe
+# Move bc.exe to a folder in your PATH
 ```
 
-#### Option 2: Install via Cargo
+#### Option 2: Build from Source
 
-If you have Rust installed:
+If you have Rust installed, you can build `bc` from source:
 
 ```bash
+git clone https://github.com/pavelkachan/bc.git
+cd bc
 cargo install --path .
 ```
 
@@ -87,13 +110,9 @@ Pipe any text into `bc` to copy it to your clipboard.
 echo "Hello World" | bc
 
 # Copy without trailing newline
-echo "Hello World" | bc --trim
-# OR
 echo "Hello World" | bc -t
 
 # Force local copy (disable remote detection)
-echo "Hello World" | bc --local
-# OR
 echo "Hello World" | bc -l
 
 # Copy a file content
