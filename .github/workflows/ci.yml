@@ -34,9 +34,9 @@ jobs:
       run: cargo test --verbose
 
   test-rhel:
-    name: Test on rockylinux-9
+    name: Test on rockylinux-8
     runs-on: ubuntu-latest
-    container: rockylinux:9
+    container: rockylinux:8
     steps:
     - name: Install System Deps
       run: |
