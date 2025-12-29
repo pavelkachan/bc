@@ -115,11 +115,20 @@ echo "Hello World" | bc -t
 # Force local copy (disable remote detection)
 echo "Hello World" | bc -l
 
+# Copy with preview confirmation
+echo "Hello World" | bc -P
+
 # Copy a file content
 cat secret_key.pem | bc
 
 # Copy command output
 ls -la | bc
+
+# Read from clipboard (paste)
+bc -p
+
+# Clear clipboard
+bc -c
 ```
 
 ## Remote Usage (SSH)
@@ -131,6 +140,53 @@ When running `bc` inside an SSH session, it detects the remote environment and a
     *   *Supported*: Windows Terminal, iTerm2, Alacritty, Kitty, WezTerm, Rio.
     *   *Unsupported*: Standard Gnome Terminal (often requires plugins), older terminals.
 2.  **Multiplexers**: If using `tmux` or `screen` on the remote server, you may need to configure them to pass through escape sequences.
+
+## Advanced Features
+
+### Input Validation
+
+`bc` detects binary data and control characters in input. If detected, it will warn and exit with code 4. Use `--force` to bypass:
+
+```bash
+# Force copy even with binary data
+cat binary_file | bc --force
+```
+
+### Exit Codes
+
+`bc` uses specific exit codes for scripting:
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error |
+| 2 | Empty input |
+| 3 | Clipboard unavailable |
+| 4 | Invalid input (binary data) |
+
+Example usage in scripts:
+
+```bash
+if echo "data" | bc; then
+    echo "Copied successfully!"
+else
+    exit_code=$?
+    echo "Copy failed with code: $exit_code"
+fi
+```
+
+### Large File Support
+
+`bc` supports content up to 10MB (when base64-encoded) when using OSC 52. Content exceeding this limit will fail with an error message. For larger files, use `--local` flag or alternative transfer methods (scp, rsync, etc.).
+
+### Clipboard Preview
+
+The `--preview` flag shows what was copied:
+
+```bash
+echo "Very long text..." | bc -P
+# Output: Copied: "Very long text..." (12345 bytes, 12345 chars)
+```
 
 ## Troubleshooting
 
