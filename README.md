@@ -127,19 +127,62 @@ ls -la | bc
 # Read from clipboard (paste)
 bc -p
 
+# Read from clipboard (force local)
+bc -p --local
+
 # Clear clipboard
 bc -c
+
+# Experimental: Attempt remote paste via OSC 52 query
+bc -p --force-paste
 ```
 
 ## Remote Usage (SSH)
 
 When running `bc` inside an SSH session, it detects the remote environment and attempts to copy to your *local* clipboard using OSC 52.
 
+**Supported Operations in SSH:**
+- ✅ **Copy**: `echo "text" | bc` - Works automatically
+- ✅ **Clear**: `bc -c` - Clears your local clipboard via OSC 52
+- ❌ **Paste**: `bc -p` - Not supported (see alternatives below)
+
 **Requirements for Remote Copy:**
 1.  **Terminal Support**: Your local terminal emulator must support OSC 52.
     *   *Supported*: Windows Terminal, iTerm2, Alacritty, Kitty, WezTerm, Rio.
     *   *Unsupported*: Standard Gnome Terminal (often requires plugins), older terminals.
 2.  **Multiplexers**: If using `tmux` or `screen` on the remote server, you may need to configure them to pass through escape sequences.
+
+### Remote Paste Limitations
+
+Reading from clipboard (`bc -p`) doesn't work over SSH because most terminals don't support OSC 52 clipboard querying for security reasons. When you attempt this, `bc` will provide helpful alternatives:
+
+```bash
+# In SSH session, this will show alternatives
+bc -p
+
+# Alternatives:
+# 1. Use X11 forwarding: ssh -X host
+# 2. Copy file to remote: scp file.txt host:/tmp/ && cat /tmp/file.txt
+# 3. Force local clipboard: bc -p --local (if display available)
+# 4. Try experimental OSC 52 query: bc -p --force-paste (limited terminal support)
+```
+
+### Experimental OSC 52 Query
+
+The `--force-paste` flag attempts to read clipboard via OSC 52 query. This is **experimental** and only works with specific terminals:
+
+**Supported Terminals:**
+- **XTerm**: Set `XTerm*allowWindowOps: true` in `~/.Xresources`
+- **kitty**: Enable `clipboard_control read` in `kitty.conf`
+- **tmux**: Version 3.0+ with `set-clipboard enabled`
+
+**Unsupported Terminals:**
+- WezTerm, iTerm2, Alacritty, and most others (security feature)
+
+```bash
+# Experimental remote paste (may not work)
+bc -p --force-paste
+```
 
 ## Advanced Features
 
