@@ -115,22 +115,121 @@ echo "Hello World" | bc -t
 # Force local copy (disable remote detection)
 echo "Hello World" | bc -l
 
+# Copy with preview confirmation
+echo "Hello World" | bc -P
+
 # Copy a file content
 cat secret_key.pem | bc
 
 # Copy command output
 ls -la | bc
+
+# Read from clipboard (paste)
+bc -p
+
+# Read from clipboard (force local)
+bc -p --local
+
+# Clear clipboard
+bc -c
+
+# Experimental: Attempt remote paste via OSC 52 query
+bc -p --force-paste
 ```
 
 ## Remote Usage (SSH)
 
 When running `bc` inside an SSH session, it detects the remote environment and attempts to copy to your *local* clipboard using OSC 52.
 
+**Supported Operations in SSH:**
+- ✅ **Copy**: `echo "text" | bc` - Works automatically
+- ✅ **Clear**: `bc -c` - Clears your local clipboard via OSC 52
+- ❌ **Paste**: `bc -p` - Not supported (see alternatives below)
+
 **Requirements for Remote Copy:**
 1.  **Terminal Support**: Your local terminal emulator must support OSC 52.
     *   *Supported*: Windows Terminal, iTerm2, Alacritty, Kitty, WezTerm, Rio.
     *   *Unsupported*: Standard Gnome Terminal (often requires plugins), older terminals.
 2.  **Multiplexers**: If using `tmux` or `screen` on the remote server, you may need to configure them to pass through escape sequences.
+
+### Remote Paste Limitations
+
+Reading from clipboard (`bc -p`) doesn't work over SSH because most terminals don't support OSC 52 clipboard querying for security reasons. When you attempt this, `bc` will provide helpful alternatives:
+
+```bash
+# In SSH session, this will show alternatives
+bc -p
+
+# Alternatives:
+# 1. Use X11 forwarding: ssh -X host
+# 2. Copy file to remote: scp file.txt host:/tmp/ && cat /tmp/file.txt
+# 3. Force local clipboard: bc -p --local (if display available)
+# 4. Try experimental OSC 52 query: bc -p --force-paste (limited terminal support)
+```
+
+### Experimental OSC 52 Query
+
+The `--force-paste` flag attempts to read clipboard via OSC 52 query. This is **experimental** and only works with specific terminals:
+
+**Supported Terminals:**
+- **XTerm**: Set `XTerm*allowWindowOps: true` in `~/.Xresources`
+- **kitty**: Enable `clipboard_control read` in `kitty.conf`
+- **tmux**: Version 3.0+ with `set-clipboard enabled`
+
+**Unsupported Terminals:**
+- WezTerm, iTerm2, Alacritty, and most others (security feature)
+
+```bash
+# Experimental remote paste (may not work)
+bc -p --force-paste
+```
+
+## Advanced Features
+
+### Input Validation
+
+`bc` detects binary data and control characters in input. If detected, it will warn and exit with code 4. Use `--force` to bypass:
+
+```bash
+# Force copy even with binary data
+cat binary_file | bc --force
+```
+
+### Exit Codes
+
+`bc` uses specific exit codes for scripting:
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error |
+| 2 | Empty input |
+| 3 | Clipboard unavailable |
+| 4 | Invalid input (binary data) |
+
+Example usage in scripts:
+
+```bash
+if echo "data" | bc; then
+    echo "Copied successfully!"
+else
+    exit_code=$?
+    echo "Copy failed with code: $exit_code"
+fi
+```
+
+### Large File Support
+
+`bc` supports content up to 10MB (when base64-encoded) when using OSC 52. Content exceeding this limit will fail with an error message. For larger files, use `--local` flag or alternative transfer methods (scp, rsync, etc.).
+
+### Clipboard Preview
+
+The `--preview` flag shows what was copied:
+
+```bash
+echo "Very long text..." | bc -P
+# Output: Copied: "Very long text..." (12345 bytes, 12345 chars)
+```
 
 ## Troubleshooting
 
