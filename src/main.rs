@@ -7,9 +7,7 @@ use is_terminal::IsTerminal;
 use std::io::{self, Read};
 use std::process::ExitCode;
 
-use clipboard::{
-    clear_local, clear_remote, copy_local, copy_remote, is_remote_session, paste_clipboard,
-};
+use clipboard::{clear_clipboard, copy_local, copy_remote, is_remote_session, paste_clipboard};
 
 /// Exit codes for different scenarios
 #[repr(i32)]
@@ -110,23 +108,15 @@ fn handle_paste(args: &Args) -> ExitCode {
 
 /// Handle clear operation
 fn handle_clear(args: &Args) -> ExitCode {
-    let result = if !args.local && is_remote_session() {
-        clear_remote().map(|_| {
-            eprintln!("Clipboard cleared (via OSC 52)");
-        })
-    } else {
-        clear_local().or_else(|e| {
-            if args.local {
-                return Err(e);
-            }
-            clear_remote()?;
-            eprintln!("Clipboard cleared (via OSC 52)");
-            Ok(())
-        })
-    };
+    let prefer_remote = !args.local && is_remote_session();
 
-    match result {
-        Ok(_) => BcExitCode::Success.into(),
+    match clear_clipboard(prefer_remote, args.local) {
+        Ok(osc52_used) => {
+            if osc52_used {
+                eprintln!("Clipboard cleared (via OSC 52)");
+            }
+            BcExitCode::Success.into()
+        }
         Err(e) => {
             eprintln!("Error: {}", e);
             BcExitCode::GeneralError.into()

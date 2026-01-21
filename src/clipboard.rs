@@ -57,8 +57,7 @@ fn init_clipboard() -> Result<Clipboard> {
 pub fn copy_local(text: &str) -> Result<()> {
     init_clipboard()?
         .set_text(text)
-        .context("Failed to write to local clipboard")?;
-    Ok(())
+        .context("Failed to write to local clipboard")
 }
 
 /// Copy text to remote clipboard via OSC 52
@@ -66,30 +65,52 @@ pub fn copy_remote(text: &str) -> Result<()> {
     let encoded = base64::engine::general_purpose::STANDARD.encode(text);
 
     if encoded.len() > osc52::OSC52_MAX_SIZE {
-        return Err(anyhow::anyhow!(
+        anyhow::bail!(
             "Content too large for OSC 52 clipboard ({} bytes, max {} bytes). \
              Use --local flag or alternative transfer method.",
             encoded.len(),
             osc52::OSC52_MAX_SIZE
-        ));
+        );
     }
 
-    osc52::write_sequence(&osc52::build_sequence_raw(&encoded))?;
-    Ok(())
+    osc52::write_sequence(&osc52::build_sequence_raw(&encoded))
 }
 
 /// Clear local clipboard
 pub fn clear_local() -> Result<()> {
     init_clipboard()?
         .set_text("")
-        .context("Failed to clear local clipboard")?;
-    Ok(())
+        .context("Failed to clear local clipboard")
 }
 
 /// Clear remote clipboard via OSC 52 (empty write)
 pub fn clear_remote() -> Result<()> {
-    osc52::write_sequence(&osc52::build_sequence_raw(""))?;
-    Ok(())
+    osc52::write_sequence(&osc52::build_sequence_raw(""))
+}
+
+/// Clear clipboard with automatic fallback logic
+/// Returns Ok(true) if OSC 52 was used, Ok(false) if local only
+pub fn clear_clipboard(prefer_remote: bool, force_local: bool) -> Result<bool> {
+    let remote_result = clear_remote().map(|_| true);
+
+    if prefer_remote {
+        if remote_result.is_ok() || force_local {
+            return remote_result;
+        }
+        // Fallback to local if remote failed
+        return clear_local().map(|_| false);
+    }
+
+    // Prefer local: try local first, fallback to remote
+    clear_local()
+        .map(|_| false)
+        .or_else(|e| {
+            if force_local {
+                Err(e)
+            } else {
+                remote_result
+            }
+        })
 }
 
 /// Paste from clipboard (supports local and experimental OSC 52 query)
@@ -109,13 +130,20 @@ pub fn paste_clipboard(args: &Args) -> Result<String> {
 /// Handle paste in remote sessions
 fn handle_remote_paste(args: &Args) -> Result<String> {
     if args.force_paste {
-        eprintln!("Warning: --force-paste is experimental");
-        eprintln!("OSC 52 clipboard querying requires terminal support (XTerm, kitty, tmux)");
-        eprintln!("Most terminals (WezTerm, iTerm2, etc.) do not support clipboard reading");
-        Err(anyhow::anyhow!(REMOTE_PASTE_UNSUPPORTED))
-    } else {
-        Err(anyhow::anyhow!(REMOTE_PASTE_ERROR))
+        print_remote_paste_warnings();
     }
+    Err(anyhow::anyhow!(if args.force_paste {
+        REMOTE_PASTE_UNSUPPORTED
+    } else {
+        REMOTE_PASTE_ERROR
+    }))
+}
+
+/// Print warnings for experimental remote paste feature
+fn print_remote_paste_warnings() {
+    eprintln!("Warning: --force-paste is experimental");
+    eprintln!("OSC 52 clipboard querying requires terminal support (XTerm, kitty, tmux)");
+    eprintln!("Most terminals (WezTerm, iTerm2, etc.) do not support clipboard reading");
 }
 
 #[cfg(test)]
