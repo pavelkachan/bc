@@ -1,5 +1,6 @@
 mod clipboard;
 mod osc52;
+mod terminal;
 
 use anyhow::{Context, Result};
 use clap::Parser;

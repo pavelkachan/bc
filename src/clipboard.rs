@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use arboard::Clipboard;
 use base64::Engine as _;
-use std::env;
+use is_terminal::IsTerminal;
+use std::{env, io};
 
 use crate::osc52;
 use crate::Args;
@@ -29,33 +30,33 @@ Alternatives:
   - Try experimental OSC 52 query: bc -p --force-paste";
 
 const REMOTE_PASTE_UNSUPPORTED: &str = "\
-Full OSC 52 query implementation not yet available.
+OSC 52 query requires:
+  - A terminal (stdin must be a TTY, not piped input)
+  - Terminal that supports clipboard reading (XTerm, kitty, tmux)
+  - Proper terminal configuration
 
-This feature requires:
-  - Terminal raw mode handling (platform-specific)
-  - Reading stdin responses with timeout
-  - Complex response parsing
+Most terminals (WezTerm, iTerm2, Alacritty, Ghostty) do NOT support
+clipboard reading for security reasons.
 
 Currently supported terminals:
   - XTerm (set 'XTerm*allowWindowOps: true' in ~/.Xresources)
   - kitty (enable 'clipboard_control read' in kitty.conf)
-  - tmux (version 3.0+ with set-clipboard enabled)
+  - tmux 3.0+ (set 'set -s set-clipboard on' in tmux.conf)
 
-For now, please use alternatives like X11 forwarding (ssh -X) or file transfer.";
+Alternatives:
+  - X11 forwarding: ssh -X host
+  - File transfer: scp file.txt host:/tmp/ && cat /tmp/file.txt
+  - Force local clipboard: bc -p --local";
 
 /// Detect if running in a remote session (SSH, AWS SSM, etc.)
 pub fn is_remote_session() -> bool {
     REMOTE_SESSION_VARS.iter().any(|var| env::var(var).is_ok())
 }
 
-/// Initialize clipboard and return it
-fn init_clipboard() -> Result<Clipboard> {
-    Clipboard::new().context("Failed to initialize clipboard")
-}
-
 /// Copy text to local clipboard via arboard
 pub fn copy_local(text: &str) -> Result<()> {
-    init_clipboard()?
+    Clipboard::new()
+        .context("Failed to initialize clipboard")?
         .set_text(text)
         .context("Failed to write to local clipboard")
 }
@@ -78,7 +79,8 @@ pub fn copy_remote(text: &str) -> Result<()> {
 
 /// Clear local clipboard
 pub fn clear_local() -> Result<()> {
-    init_clipboard()?
+    Clipboard::new()
+        .context("Failed to initialize clipboard")?
         .set_text("")
         .context("Failed to clear local clipboard")
 }
@@ -115,35 +117,49 @@ pub fn clear_clipboard(prefer_remote: bool, force_local: bool) -> Result<bool> {
 
 /// Paste from clipboard (supports local and experimental OSC 52 query)
 pub fn paste_clipboard(args: &Args) -> Result<String> {
-    // Early return for remote sessions
     if !args.local && is_remote_session() {
         return handle_remote_paste(args);
     }
 
-    let text = init_clipboard()?
+    Clipboard::new()
+        .context("Failed to initialize clipboard")?
         .get_text()
-        .context("Failed to read from clipboard")?;
-
-    Ok(text)
+        .context("Failed to read from clipboard")
 }
 
 /// Handle paste in remote sessions
 fn handle_remote_paste(args: &Args) -> Result<String> {
-    if args.force_paste {
-        print_remote_paste_warnings();
+    if !args.force_paste {
+        return Err(anyhow::anyhow!(REMOTE_PASTE_ERROR));
     }
-    Err(anyhow::anyhow!(if args.force_paste {
-        REMOTE_PASTE_UNSUPPORTED
-    } else {
-        REMOTE_PASTE_ERROR
-    }))
-}
 
-/// Print warnings for experimental remote paste feature
-fn print_remote_paste_warnings() {
     eprintln!("Warning: --force-paste is experimental");
     eprintln!("OSC 52 clipboard querying requires terminal support (XTerm, kitty, tmux)");
     eprintln!("Most terminals (WezTerm, iTerm2, etc.) do not support clipboard reading");
+
+    if !io::stdin().is_terminal() {
+        return Err(anyhow::anyhow!(
+            "OSC 52 query requires a terminal (stdin is not a TTY).\n\n{}",
+            REMOTE_PASTE_UNSUPPORTED
+        ));
+    }
+
+    if env::var("TMUX").is_ok() || env::var("STY").is_ok() {
+        eprintln!("WARNING: Detected terminal multiplexer (tmux/screen).");
+        eprintln!("OSC 52 query requires: set-clipboard on (tmux) or passthrough config.");
+    }
+
+    osc52::query_clipboard(2000)
+        .and_then(|encoded| {
+            if encoded.is_empty() {
+                return Ok(String::new());
+            }
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(&encoded)
+                .context("Failed to decode base64 clipboard content")?;
+            String::from_utf8(bytes).context("Clipboard content is not valid UTF-8")
+        })
+        .map_err(|e| anyhow::anyhow!("OSC 52 query failed: {}\n\n{}", e, REMOTE_PASTE_UNSUPPORTED))
 }
 
 #[cfg(test)]

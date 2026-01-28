@@ -29,3 +29,6 @@ base64 = "0.22"
 anyhow = "1.0"
 is-terminal = "0.4"
 clap = { version = "4.4", features = ["derive"] }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "0.38", features = ["termios"] }
