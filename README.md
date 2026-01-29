@@ -116,10 +116,11 @@ echo "Hello World" | bc -t
 echo "Hello World" | bc -l
 
 # Copy with preview confirmation
-echo "Hello World" | bc -P
+echo "Very long text..." | bc -P
+# Output: Copied "Very long text..." (1234 bytes, 1234 chars)
 
 # Copy a file content
-cat secret_key.pem | bc
+cat ~/.ssh/id_rsa.pub | bc
 
 # Copy command output
 ls -la | bc
@@ -133,7 +134,7 @@ bc -p --local
 # Clear clipboard
 bc -c
 
-# Experimental: Attempt remote paste via OSC 52 query
+# Experimental: Remote paste via OSC 52 query (Unix-only, requires TTY)
 bc -p --force-paste
 ```
 
@@ -144,7 +145,7 @@ When running `bc` inside an SSH session, it detects the remote environment and a
 **Supported Operations in SSH:**
 - ✅ **Copy**: `echo "text" | bc` - Works automatically
 - ✅ **Clear**: `bc -c` - Clears your local clipboard via OSC 52
-- ❌ **Paste**: `bc -p` - Not supported (see alternatives below)
+- ⚠️ **Paste**: `bc -p --force-paste` - Experimental, Unix-only, limited terminal support
 
 **Requirements for Remote Copy:**
 1.  **Terminal Support**: Your local terminal emulator must support OSC 52.
@@ -169,18 +170,24 @@ bc -p
 
 ### Experimental OSC 52 Query
 
-The `--force-paste` flag attempts to read clipboard via OSC 52 query. This is **experimental** and only works with specific terminals:
+The `--force-paste` flag reads clipboard contents via OSC 52 query protocol.
+This is **experimental** and only works with specific terminals on Unix systems.
+
+**Requirements:**
+- **Unix-only**: Linux and macOS only (not supported on Windows)
+- **TTY required**: Must run in a terminal (cannot use with piped input)
+- **2-second timeout**: Gracefully fails on unsupported terminals
 
 **Supported Terminals:**
 - **XTerm**: Set `XTerm*allowWindowOps: true` in `~/.Xresources`
 - **kitty**: Enable `clipboard_control read` in `kitty.conf`
-- **tmux**: Version 3.0+ with `set-clipboard enabled`
+- **tmux 3.0+**: Set `set -s set-clipboard on` in `tmux.conf`
 
-**Unsupported Terminals:**
-- WezTerm, iTerm2, Alacritty, and most others (security feature)
+**Unsupported Terminals (timeout):**
+- WezTerm, iTerm2, Alacritty, Ghostty (security feature)
 
 ```bash
-# Experimental remote paste (may not work)
+# Experimental remote paste (may timeout on unsupported terminals)
 bc -p --force-paste
 ```
 
