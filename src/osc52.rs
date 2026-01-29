@@ -49,9 +49,9 @@ pub fn build_query_sequence() -> String {
 /// Returns the base64-encoded string (empty string if clipboard is empty).
 pub fn parse_response(input: &str) -> Result<String> {
     // Find the LAST occurrence of the prefix (in case of junk before response)
-    let start_idx = input.rfind(OSC52_PREFIX).ok_or_else(|| {
-        anyhow::anyhow!("Invalid OSC 52 response: missing prefix '\\x1b]52;c;'")
-    })?;
+    let start_idx = input
+        .rfind(OSC52_PREFIX)
+        .ok_or_else(|| anyhow::anyhow!("Invalid OSC 52 response: missing prefix '\\x1b]52;c;'"))?;
 
     // Find the end: either BEL or ST terminator
     let response_part = &input[start_idx + OSC52_PREFIX.len()..];
@@ -78,7 +78,6 @@ pub fn parse_response(input: &str) -> Result<String> {
 /// - Terminal operations fail
 /// - Response is malformed
 /// - Response exceeds size limit
-#[allow(clippy::let_unit_value)]
 pub fn query_clipboard(timeout_ms: u64) -> Result<String> {
     use crate::terminal;
 
@@ -86,10 +85,12 @@ pub fn query_clipboard(timeout_ms: u64) -> Result<String> {
         anyhow::bail!("OSC 52 query requires a terminal (stdin is not a TTY)");
     }
 
+    #[allow(clippy::let_unit_value)]
     let _guard = terminal::set_raw_mode().context("Failed to set terminal to raw mode")?;
     write_sequence(&build_query_sequence()).context("Failed to write OSC 52 query sequence")?;
 
-    let response = terminal::read_with_timeout(timeout_ms).context("Failed to read OSC 52 response")?;
+    let response =
+        terminal::read_with_timeout(timeout_ms).context("Failed to read OSC 52 response")?;
 
     if response.is_empty() {
         anyhow::bail!("Terminal doesn't support OSC 52 query (no response)");

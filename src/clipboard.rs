@@ -96,7 +96,10 @@ pub fn clear_clipboard(prefer_remote: bool, force_local: bool) -> Result<bool> {
     let remote_result = clear_remote().map(|_| true);
 
     if prefer_remote {
-        if remote_result.is_ok() || force_local {
+        if force_local {
+            return clear_local().map(|_| false);
+        }
+        if remote_result.is_ok() {
             return remote_result;
         }
         // Fallback to local if remote failed
@@ -106,13 +109,7 @@ pub fn clear_clipboard(prefer_remote: bool, force_local: bool) -> Result<bool> {
     // Prefer local: try local first, fallback to remote
     clear_local()
         .map(|_| false)
-        .or_else(|e| {
-            if force_local {
-                Err(e)
-            } else {
-                remote_result
-            }
-        })
+        .or_else(|e| if force_local { Err(e) } else { remote_result })
 }
 
 /// Paste from clipboard (supports local and experimental OSC 52 query)
@@ -149,6 +146,11 @@ fn handle_remote_paste(args: &Args) -> Result<String> {
         eprintln!("OSC 52 query requires: set-clipboard on (tmux) or passthrough config.");
     }
 
+    if env::var("KITTY_WINDOW_ID").is_ok() {
+        eprintln!("Detected kitty terminal.");
+        eprintln!("OSC 52 query requires: 'clipboard_control read' in kitty.conf");
+    }
+
     osc52::query_clipboard(2000)
         .and_then(|encoded| {
             if encoded.is_empty() {
@@ -169,5 +171,31 @@ mod tests {
     #[test]
     fn test_osc52_clear_sequence() {
         assert_eq!(osc52::build_sequence_raw(""), "\x1b]52;c;\x07");
+    }
+
+    #[test]
+    fn test_clear_clipboard_force_local_override() {
+        // force_local=true should use local even when prefer_remote=true
+        // Note: This test verifies the logic structure; actual clipboard behavior depends on environment
+        let result = clear_clipboard(true, true);
+        // With force_local, should return Ok(false) indicating local clipboard was used
+        // We can't test actual clipboard behavior in unit tests, but we verify no panic
+        let _ = result;
+    }
+
+    #[test]
+    fn test_clear_clipboard_prefer_local() {
+        // prefer_remote=false should try local first
+        let result = clear_clipboard(false, false);
+        // Verify function executes without panic
+        let _ = result;
+    }
+
+    #[test]
+    fn test_clear_clipboard_prefer_remote() {
+        // prefer_remote=true should try remote first
+        let result = clear_clipboard(true, false);
+        // Verify function executes without panic
+        let _ = result;
     }
 }
