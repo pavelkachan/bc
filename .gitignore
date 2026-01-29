@@ -12,6 +12,9 @@ Thumbs.db
 *.swp
 *.iml
 
+# Claude AI (local settings)
+.claude/
+
 # Binaries (if moved to root)
 bc
 bc.exe
